@@ -1,0 +1,101 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		//Regex Memo
+		//  closeしたものもヒットさせたい場合はclose機能無効バージョンのコメントを外し、通常バージョンをコメントアウトしてください
+		//  expはgmオプション前提
+		//  CORS改行 :(\\n|\\r|\\r\\n)
+		//  追記regex :(\\n|\\r|\\r\\n)(\/\/|##)RE:(\/\/|##).*?$
+		//  close regex :(\\n|\\r|\\r\\n)(\/\/|##)CLOSE(\/\/|##).*?$
+		//
+		//↓↓ close機能無効バージョン ↓↓
+		//"todo-tree.regex.regex": "^(\/\/|##)($TAGS)(\/\/|##).*?$((\\n|\\r|\\r\\n)(\/\/|##)RE:(\/\/|##).*?$)*?",
+		//
+		//↓↓ 通常バージョン ↓↓
+		"todo-tree.regex.regex": "^(\/\/|##)($TAGS)(\/\/|##)(?!\\(c\\)).*?$((?!(\\n|\\r|\\r\\n)(\/\/|##)RE:(\/\/|##).*?$)(?!(\\n|\\r|\\r\\n)(\/\/|##)CLOSE(\/\/|##).*?)|((\\n|\\r|\\r\\n)(\/\/|##)RE:(\/\/|##).*?$)+?(?!(\\n|\\r|\\r\\n)(\/\/|##)CLOSE(\/\/|##).*?))",
+		//
+		"todo-tree.general.tagGroups": {
+			"QA": [
+				"QA"
+			],
+			"WIP": [
+				"WIP",
+				"WIP_HM",
+				"WIP_RA"
+			],
+			"TASK": [
+				"TASK",
+				"TASK_HM",
+				"TASK_RA"
+			],
+			"TODO": [
+				"TODO",
+				"TODO_HM",
+				"TODO_RA"
+			],
+	        "FIXME": [
+	            "FIXME",
+	            "FIXIT"
+			],
+			"HM": [
+				"WIP_HM",
+				"TASK_HM",
+				"TODO_HM"
+			],
+			"RA": [
+				"WIP_RA",
+				"TASK_RA",
+				"TODO_RA"
+			],
+			"EXT_DEBUG": [
+				"EXT_DEBUG_MATCH",
+				"EXT_DEBUG_NOT_MATCH",
+			]
+	    },
+		"todo-tree.highlights.defaultHighlight": {
+		    "icon": "check",
+		    "iconColour": "orange",
+		    "type":"tag-and-comment",
+		    "foreground": "#730000",
+		    "background": "#ffdf5e",
+		    "opacity": 50
+		},
+		"todo-tree.highlights.customHighlight": {
+		    "FIXME": {
+				"icon": "alert",
+		        "foreground": "black",
+		        "iconColour": "yellow",
+		        "gutterIcon": true
+		    },
+			"FIXIT": {
+				"icon": "alert",
+		        "foreground": "black",
+		        "iconColour": "yellow",
+		        "gutterIcon": true
+		    }
+		},
+		"todo-tree.general.tags": [
+			"QA",
+			"WIP",
+			"WIP_HM",
+			"WIP_RA",
+			"TASK",
+			"TASK_HM",
+			"TASK_RA",
+			"TODO",
+			"TODO_HM",
+			"TODO_RA",
+			"FIXME",
+			"FIXIT",
+			"EXT_DEBUG_MATCH",
+			"EXT_DEBUG_NOT_MATCH"
+		],
+		"todo-tree.tree.grouped": true,
+		"todo-tree.ripgrep.ripgrepArgs": "--max-columns=1000 --no-config --pcre2 ",
+		"todo-tree.general.debug": true
+	}
+}
