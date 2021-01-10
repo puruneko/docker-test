@@ -2,13 +2,19 @@
     <head>
         <script type="text/javascript">
             function insert() {
-                var hoge = document.myform.textbox.value;
-                //alert(hoge);
-                fetch('https://holidays-jp.github.io/api/v1/date.json')
-                .then(response => response.text())
-                .then(text => {
-                    alert(text);
-                });
+                var name = document.myform.textbox.value;
+                alert(`name:${name}`)
+                const obj = {'name':name};
+                const method = "POST";
+                const body = JSON.stringify(obj);
+                const headers = {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                };
+                fetch("/api/insert", {method, headers, body})
+                .then((res)=> res.json())
+                .then(console.log)
+                .catch(console.error);
             }
         </script>
     </head>
