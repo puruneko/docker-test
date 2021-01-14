@@ -1,0 +1,11 @@
+kind: Service
+apiVersion: v1
+metadata:
+    name: web-svc
+spec:
+    type: NodePort
+    ports: #portで受けた通信をtargetPortへ転送
+    -   port: 8080 #NodePortが公開するPort
+        targetPort: 80 #NodePortが転送する先のPort
+    selector:
+        app: web

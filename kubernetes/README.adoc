@@ -1,0 +1,1467 @@
+:imagesdir: ./.asciidoctor/.images
+
+= Kubernetes
+
+== ハンズオン用の全コマンド
+
+. cd kubernetes
+. minikube start
+. minikube cluster-infoでip確認
+. hostsでdev.kota.comを確認IPにバインドする
+. eval $(minikube -p minikube docker-env)
+. cd docker
+. docker-compose build
+. cd ..
+. kubectl apply -f ./setup
+. kubectl apply -f ./application
+
+== 前準備／事前知識
+
+作業順序::
+. クラスタのルートディレクトリに移動 +
+`` cd /media/shared/document/git/gitlab/peaberry/peaberry_webmock/webmock/lab/kubernetes ``
+. クラスタconfigのパス指定 +
+`` export KUBECONFIG=`pwd`/.kube/config ``
+. クラスタの立ち上げ +
+`` minikube start ``
+. クラスタIPの確認 ＆ hostsの更新 +
+`` kubectl cluster-info `` +
+`` sudo vi /etc/hosts ``
+. クラスタ内Dockerへの接続確立 +
+`` eval $(minikube -p minikube docker-env) ``
+. クラスタ内Dockerへイメージを作成 +
+`` docker build --tag Name:Version /Path/To/Dockerfile  ``
+. セットアップ系のオブジェクトの立ち上げ +
+`` kubectl apply -f /Path/To/SetupFolder ``
+. ポッド系のオブジェクトの立ち上げ +
+`` kubectl apply -f /Path/To/PodManufest ``
+
+同じノードで別端末からのアクセス::
+. 環境変数KUBECONFIGの設定 +
+接続先のconfigが `` ~/.kube/config `` 以外の場合、環境変数KUBECONFIGを設定する
+`` export KUBECONFIG=/Path/To/.kube/config ``
+. contextの確認 +
+`` kubectl config get-contexts ``
+. クラスタ環境にスイッチ +
+`` kubectl config use-context minikube `` +
+(minikubeのところは適宜contextに置き換える)
+
+minikube内のdocker hostにimageを作成::
+* 参考1：https://www.sambaiz.net/article/151/
+* 参考2：https://qiita.com/comefigo/items/35a84c68b8cd333442f1
+. docker hostを一時的にminikube内にするため、環境変数を一時的に書き換える +
+`` eval $(minikube -p minikube docker-env) ``
++
+COUNTION:: これ以降、dockerにはsudoをつけない(sudoをつけるとホストマシン内のdocker hostに対してコマンドを実行することになる)
+. k8s内のコンテナイメージが確認できるか確かめる +
+`` docker images `` +
+. ビルド +
+`` docker build --tag name:version /path/to/Dockerfile ``
++
+COUTION:: versionは必ず設定する（無しだと自動でlatestが付与され、イメージを実行するときにインターネットのイメージを探しに行ってしまう=失敗する）
+
+dashboardの起動::
+`` sudo minikube dashboard --url ``
+`` sudo kubectl proxy ``
+
+
+== kubectlのインストール
+
+https://cravencode.com/post/kubernetes/setup-minikube-on-ubuntu-kvm2/
+
+[source,bash]
+--
+sudo apt-get update && sudo apt-get install -y apt-transport-https
+curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list
+sudo apt-get update
+sudo apt-get install -y kubectl
+--
+
+== minikubeのインストール
+[source,bash]
+--
+curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube
+minikube completion bash | sudo tee /etc/bash_completion.d/minikube
+source <(minikube completion bash)
+--
+
+== KVMのインストール（必要に応じて）
+.install
+[source,bash]
+--
+sudo apt install qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils
+sudo apt install virt-manager
+--
+
+.privillage grouping
+[source,bash]
+--
+sudo usermod -a -G libvirt root
+newgrp libvirt
+--
+
+.driver
+[source,bash]
+--
+curl -Lo docker-machine-driver-kvm2 https://storage.googleapis.com/minikube/releases/latest/docker-machine-driver-kvm2 \
+&& chmod +x docker-machine-driver-kvm2 \
+&& sudo cp docker-machine-driver-kvm2 /usr/local/bin/ \
+&& rm docker-machine-driver-kvm2
+--
+
+== minukubeのスタートアップ
+
+. privillage grouping
++
+[source,bash]
+--
+sudo usermod -a -G libvirt root
+newgrp libvirt
+--
+
+. conntrackのインストール
++
+[source,bash]
+--
+apt install conntrack
+--
+
+. minukubeのスタート(sudoはつけない)
++
+[source,bash]
+--
+minukube start
+--
+(500MBくらいイメージをダウンロードする)
+
+
+== コマンド
+
+.一覧
+[options="header, autowidth"]
+|====
+| コマンド(kubectl +) | 動作
+| cluster-info | 
+| run |
+| logs |
+| delete pod |
+| create deployment |
+| scale |
+| get node |
+| get pod |
+| get deployment |
+| get all |
+| get all -o wide | IPアドレスも表示
+| describe | 詳細情報
+| scale | レプリカ数の変更
+| rollout | ロールアウト
+| cordon | 指定ノードへのスケジュール停止
+| drain | 指定ノードから他のノードへポッドを退避させる
+| uncordon | 指定ノードへのスケジュールを再開する
+|====
+
+k8s環境の情報::
+`` kubectl cluster-info ``
+
+ノードの確認::
+`` kubectl get node ``
+
+ポッドの実行(単体)::
+`` kubectl run [PodName] --image=[ImageName] --restart=Never `` +
+(restart=Neverで直接ポッドを実行するという意味になる)
+
+ポッドのログ表示::
+`` kubectl logs [PodName] ``
+
+ポッドの削除(単体)::
+`` kubectl delete pod [PodName] ``
+
+デプロイメントの実行::
+`` kubectl run [PodName] --image=[ImageName] `` +
+(restart=Neverをつけないと(既定値：always)、自動的にデプロイメントで制御するポッドが作成される)
++
+デプロイメント実行時に作成されるオブジェクト
++
+* deployment(deployment.apps/[PodName])
+* replicaset(replicaset.apps/[PodName])
+* pod(pod/[PodName]-[HashStrings])
+
+ジョブの実行::
+`` kubectl run [PodName] --image=[ImageName] --restart=OnFailure `` +
+(restart=OnFailureでジョブと判断される)
+
+マニュフェストの実行::
+`` kubectl apply -f [マニュフェストファイル名] ``
+
+マニュフェストで生成したオブジェクトを削除::
+`` kubectl delete -f [マニュフェストファイル名] ``
+
+イメージを指定してコマンドをPodで実行::
+`` kubectl run PodName --image=ImageName -- COMMAND ``
+
+対話形式(sh)のコンテナをPod内に作成::
+`` kubectl run PodName -it --rm --image=ImageName -- sh ``
+
+k8s内のイメージからPod作成::
+`` kubectl run PodName --image=ImageName --image-pull-policy=Never ``
+
+ロギング::
+`` kubectl -n <namespace> logs -f deployment/<app-name> --all-containers=true --since=10m ``
+
+== マニュフェスト
+
+=== 全般
+
+全体像::
+
+[plantuml, overall, svg]
+--
+left to right direction
+
+actor user
+
+package "k8s cluster(192.168.99.100)" {
+    interface "VIP\n192.168.99.100:30974" as vip
+    node "Ingress\n192.168.99.100" as ingress
+    node "Service\n30974\n(NodePort)\n+\n(ClusterIP)" as svc1
+    package "Deployment1" {
+        node "Pod" as pod1
+        node "Container" as con1
+        node "Pod" as pod2
+        node "Container" as con2
+        node "Pod" as pod3
+        node "Container" as con3
+    }
+    node "Service\n30975\n(NodePort)\n+\n(ClusterIP)" as svc2
+    package "Deployment2" {
+        node "Pod" as pod4
+        node "Container" as con4
+        node "Pod" as pod5
+        node "Container" as con5
+        node "Pod" as pod6
+        node "Container" as con6
+    }
+    vip --> ingress
+    ingress --> svc1
+    svc1 --> pod1
+    svc1 --> pod2
+    svc1 --> pod3
+    pod1 -. con1
+    pod2 -. con2
+    pod3 -. con3
+    ingress --> svc2
+    svc2 --> pod4
+    svc2 --> pod5
+    svc2 --> pod6
+    pod4 -. con4
+    pod5 -. con5
+    pod6 -. con6
+}
+
+user -- vip
+--
+
+labelについて::
+* https://kubernetes.io/ja/docs/concepts/overview/working-with-objects/labels/
+* keyとvalueのセットで1つのラベルを表す
+** keyとvalueは任意で命名できる
+
+
+=== Pod
+
+最小実行単位であるコンテナを管理するオブジェクト
+
+.Pod.yaml
+[source,yaml]
+--
+#v1は固定値
+apiversion: v1
+#Podは固定値
+kind: Pod
+#nameはPodのオブジェクト名（名前空間にも使用される）
+metadata:
+    name: PodName
+#Podの中身の記述
+spec:
+    #Podがスケジュールされるノードの選択
+    nodeSelector:
+    #ポッド内の共有ボリュームの定義
+    volumes:
+    #初期化コンテナの記述(パラメータ設定はcontainersと同様)
+    initcontainers:
+    #Pod内のコンテナの記述
+    containers:
+    -
+        #コンテナ名
+        name: ContainerName
+        #コンテナの元となるイメージ
+        image: ImageName
+        #コンテナの稼働の死活監視
+        livenessProbe:
+            #検査開始までの猶予時間
+            initialDelaySeconds:
+            #チェック間隔
+            periodSeconds:
+            #HTTP GETが実行され、ステータスが200なら成功
+            httpGet:
+                path:
+                port:
+            #指定したTCPポートにコネクトできれば成功
+            tcpsocket:
+                port:
+            #指定したコマンドがEXIT=0なら成功
+            exec:
+                command:
+                - command1
+                - command2
+        #コンテナが要求を受ける準備ができたかの監視
+        #内容はlivenessProbeと同様
+        readinessProbe:
+        #Pod外部から要求を受けるために開くポート
+        ports:
+        #CPU/Memory等のリソースの要求量と上限値
+        resources:
+        #定義したボリュームをマウントする設定
+        volumeMounts:
+        -   mountPath: /path
+            name: SharedVolumeName
+            readOnly: Boolean
+        #起動時に実行するコマンド
+        command:
+        #起動時に実行するコマンドの引数
+        args:
+        #コンテナ内の環境変数の定義
+        env:
+        -   name:
+            value:
+--
+
+初期化コンテナについて::
+* メインのコンテナが実行される前に実行される
+* 共有ボリュームなど、複数コンテナ間に渡って共通の処理をしたい場合に使用する
+* これによって、初期化処理とメイン処理を分離することができるようになる
+
+サイドカーパターン::
+* 毛色の違う複数の処理を同時に行う必要がある場合、コンテナを機能ごとに分けて構築したほうが良い場合がある
+* HTTP GETの受付けをメインコンテナで行い、HTMLドキュメントの最新化はサブコンテナで行う、など
+
+コンテナの自動復旧::
+* Probeでコンテナの異常を検知すると、そのコンテナの属するPodのkubeletがコンテナを再起動させる
+* 再起動の際、kubeletはコンテナに対してSIGTERMを送信し、コンテナを終了させる
+** コンテナ内のアプリケーションがSIGTERM受信の場合の処理を記述する必要がある（trap）
+
+
+=== Deployment
+
+Podをスケーラブルに管理するオブジェクト
+
+.Deployment.yaml
+[source,yaml]
+--
+#固定値
+apiVersion: apps/v1
+#Deploymentを指定
+kind: Deployment
+#deploymentの名前指定
+metadata:
+    name: DeploymentName
+spec:
+    #ポッドテンプレートから起動するポッドの数
+    replicas: N
+    #デプロイメント(コントローラ)とポッドを紐付けるラベル指定
+    selector:
+        matchLabels:
+            #ラベルを付与（ポッドのテンプレートと一致する必要あり）
+            app: DeploymentLabel
+    #起動するポッドのテンプレートを定義
+    template:
+        metadata:
+            labels:
+                #ラベルを付与（デプロイメントと一致する必要あり）
+                app: DeploymentLabel
+        #Podのspec以下と同様
+        spec:
+--
+
+roll out機能::
+* デプロイメントの管理下のポッドを順々に更新していく機能
+* 稼働中のデプロイメントに対して、変更を加えたマニュフェストを適用すると実行される
+
+roll back機能::
+* ロールアウト後に（不具合等によって）前のバージョンに戻す機能
+* `` kubectl rollout undo deployment [DeploymentName] ``
+
+
+=== Service
+
+* オブジェクト間を接続するオブジェクト
+* L4で動作（SSL termination不可）
+* ServiceとIngress：https://sff8.hatenablog.com/entry/2018/10/27/234757
+* loadbalance：https://knowledge.sakura.ad.jp/14380/
+* loadbalanceとIngress：https://www.imagazine.co.jp/%E5%AE%9F%E8%B7%B5-kubernetes%E3%80%80%E3%80%80%EF%BD%9E%E3%82%B3%E3%83%B3%E3%83%86%E3%83%8A%E7%AE%A1%E7%90%86%E3%81%AE%E3%82%B9%E3%82%BF%E3%83%B3%E3%83%80%E3%83%BC%E3%83%89%E3%83%84%E3%83%BC%E3%83%AB/
+
+[horizontal]
+ClusterIP:: k8s内は名前でアクセスできるようになる（内部DNSに登録される）
+NodePort:: ClusterIPの機能に加えて、ノードに公開ポートを設定する +
+ホスト上のネットワークインターフェースに割り当てられたすべてのIPアドレスに対し、指定したポートへの接続がすべて転送される
+LoadBalancer:: クラウドサービスから提供されるロードバランサと連携して、ラベルで指定されたPodに対してロードバランスを行う
+ExternalName:: k8s内ネットワークから外部のネットワークに接続するときの名前解決を行う
+
+.Service.yaml
+[source,yaml]
+--
+#固定値
+apiVersion: v1
+#Serviceを指定
+kind: Service
+#サービス名（この名前でDNSに登録される＝指定ラベルの名前に相当）
+metadata:
+    name: ServiceName
+spec:
+    #種類（ClusterIP/NodePort/LoadBalancer/ExternalName）
+    type: TypeName
+    #クライアントからの接続を転送するポッドのラベル選択
+    selector:
+        app: LabelSendTo
+    ports:
+    -   name:
+        #通信プロトコル
+        protocol: TCP/UDP
+        #このサービスで公開されるポート
+        port: 30000~32767
+        #ノードの内側のポート（省略でシステムが自動取得）
+        nodePort:
+        #対応関係にあるポッドが公開するポート（省略で上記portと同じになる）
+        targetPort:
+    #セッションアフィニティ：同一セッションを同一ポッドに転送（ClientIPのみ指定可能）
+    sessionAffinity:
+    #代表IPの割り当て（省略で自動割り当て、Noneでヘッドレス）
+    clusterIP:
+    #このサービス名で名前解決する外部のネットワークアドレス（ExternalNameのみ指定）
+    externalName: ExternalAddress
+--
+
+全般イメージ::
++
+[plantuml, service_image, svg]
+--
+left to right direction
+
+actor user
+
+package "k8s cluster(192.168.99.100)" {
+    interface "NodePort\n30974" as port
+    node "Service\n(NodePort)" as service
+    node "Pod" as pod1
+    node "Pod" as pod2
+    node "Pod" as pod3
+    port --> service
+    service --> pod1
+    service --> pod2
+    service --> pod3
+}
+
+user --> port : 192.168.99.100:30974
+--
+
+ClusterIPイメージ::
+クラスタ内IPアドレスとクラスタ内サービス名を内部DNSによって紐づけする +
+これによって、サービス配下のPodに対してサービス名でアクセスできる
++
+[plantuml, service_clusterip_image, svg]
+--
+package "k8s cluster(192.168.99.100)" {
+    node "Service\n(ClusterIP)" as service
+    note right of service: ServiceName
+    node "other Pod" as pod1
+    node "Pod" as pod2
+    node "Pod" as pod3
+    pod1 --> service : TCP ServiceName
+    service --> pod2
+    service --> pod3
+}
+--
+
+NodePortイメージ::
+ノードに割り当てられているIPアドレスのすべてのポートを公開する
++
+[plantuml, service_nodeport_image, svg]
+--
+actor user1
+actor user2
+actor user3
+
+package "Node" {
+    node "NodePort\n(80:30000)" as np
+    note left of np : すべてのノードアクセスに対して、\nNodePort(30000)のアクセスを80に転送
+    node "pod1\n(port:80)" as pod1
+    node "pod2\n(port:80)" as pod2
+    node "pod3\n(port:80)" as pod3
+}
+
+user1 --> np : aaa.bbb.ccc:30000
+user2 --> np : sss.ttt.uuu:30000
+user3 --> np : xxx.yyy.zzz:30000
+np --> pod1
+np --> pod2
+np --> pod3
+--
+
+
+=== Job
+
+Pod内のすべてのコンテナが正常終了するまでポッド単位で再試行を繰り返すオブジェクト
+
+Jobの動作の特徴::
+* 指定回数・指定並列数のポッドを実行
+* ジョブは、ポッド内のすべてのコンテナが正常終了した場合に、ポッドが正常終了したとみなす
+** Podのステータス欄はPodの作成の可否を表すものなので、ジョブの終了判定には関係ない
+* 指定回数をすべて正常終了すると、ジョブは完了する
+* 再試行数の上限に達した場合、ジョブは中断される
+* ジョブによって作成されたポッドは、ジョブが削除されるまで保持される
+
+.Job.yaml
+[source,yaml]
+--
+#固定値
+apiVersion: batch/v1
+#Jobを指定
+kind: Job
+#Jobの名前
+metadata:
+    name: JobName
+spec:
+    template:
+        #コンテナ設定（Pod参照）
+        spec:
+        #???
+        restartPolicy: Never
+    #ジョブ実行回数
+    completions:
+    #ジョブ同時実行数
+    parallelism:
+    #ジョブの最長実行時間
+    activeDeadlineSeconds:
+    #再試行上限回数
+    backoffLimit:
+--
+
+実行パラメータの設定::
+* Jobはtemplateを元に決まったPodしか実行できない
+* メッセージキューイングと動的マニュフェスト作成を駆使して可変パラメータを実現する
+* RabbitMQ: https://tech-lab.sios.jp/archives/7902
++
+[plantuml, mq_image, svg]
+--
+skinparam ComponentArrowColor black
+
+node "job-initiator" as ji
+node "MQ-System\n(RabbitMQ)" as mq
+node "Job" as job
+node "job-pod-1\n(CMD amqp-consume)" as pod1
+node "job-pod-2\n(CMD amqp-consume)" as pod2
+node "job-pod-3\n(CMD amqp-consume)" as pod3
+
+ji --> mq : (1)set msg queue
+ji --> job : (2)dynamic\ncreate
+job ..> pod1 : (3)run
+job ..> pod2 : (3)run
+job ..> pod3 : (3)run
+mq <--> pod1 : (4)consume\nparameter1
+mq <--> pod2 : (4)consume\nparameter2
+mq <--> pod3 : (4)consume\nparameter3
+--
+
+=== CronJob
+
+.CronJob.yaml
+[source,yaml]
+--
+apiVersion: batch/v1beta
+kind: CronJob
+metadata:
+    name: JobName
+spec:
+    #スケジュール文字列
+    schedule:
+    #ジョブの雛形
+    jobTemplate:
+        spec:
+            template:
+                #コンテナ設定（Pod参照）
+                spec:
+                #???
+                restartPolicy: OnFailure
+    #ジョブが開始するまでの時間
+    startingDeadlineSeconds:
+    #ジョブ間のポリシー設定
+    concurrencyPolicy:
+    #Trueで次からのジョブスケジュールを停止する（既定値:False）
+    suspend:
+    #指定回数の成功したジョブが保持される（既定値:3）
+    successfulJobsHistoryLimit:
+    #指定回数の失敗したジョブが保持される（既定値:1）
+    failedJobsHistoryLimit:
+--
+
+スケジュール文字列::
+フォーマット： `` * * * * * `` +
+1つ目：分 +
+2つ目：時間 +
+3つ目：日 +
+4つ目：月 +
+5つ目：曜日
+
+ポリシー設定::
+* Allow：同時実行ok
+* Forbit：前のJobが未完了の場合はスキップする
+* Replace：前の未完了のjobを中断して実行
+
+
+=== storage
+
+.概念図（ダイナミックプロビジョニング）
+[plantuml, storage_dynamic_provisioning_image, svg]
+--
+title Dynamic Provisioning
+left to right direction
+
+node container
+note top of container : ポッドの\nボリューム名で\nマウント
+node pod
+note top of pod : ポッドの\nボリューム名と\nPVC名を紐づけ
+node "Persistent\nVolumeClaim" as pvc
+note top of pvc : ストレージクラスと\n容量を指定して\nプロビジョニングを\n要求
+package "Storage Class" as sc {
+node "Persistent\nVolume" as pv
+note top of pv : 論理ボリュームの詳細
+node Provisioner
+note bottom of Provisioner : ストレージサービスと\n連携して\n論理ボリューム作成
+}
+note right of sc : 論理ボリュームの\n接続情報や\n接続状況の\n管理を行う
+node "StrageService" as ss
+note top of ss : StorageClassが\nうまいことやってくれる
+database Storage
+
+
+container --> pod
+pod --> pvc
+pvc --> Provisioner
+pvc --> pv
+pv --> ss
+Provisioner --> ss
+ss --> Storage
+pv -[hidden] Provisioner
+pvc -[hidden]- sc
+sc -[hidden]- ss
+--
+
+.概念図（スタティックプロビジョニング）
+[plantuml, storage_static_provisioning_image, svg]
+--
+title Static Provisioning
+left to right direction
+
+node container
+note top of container : ポッドの\nボリューム名で\nマウント
+node pod
+note top of pod : ポッドの\nボリューム名と\nPVC名を紐づけ
+node "Persistent\nVolumeClaim" as pvc
+note top of pvc : PV名で\nボリュームの接続先を\n指定
+node "Persistent\nVolume" as pv
+note top of pv : 接続先やパスなど\nサービス依存の\n情報
+node "StrageService" as ss
+note top of ss : サービス依存の\n接続処理
+database Storage
+
+
+container --> pod
+pod --> pvc
+pvc --> pv
+pv --> ss
+ss --> Storage
+--
+
+==== ストレージクラスを利用
+
+.PersistenrVolumeClaim(dynamic).yaml
+[source,yaml]
+--
+apiVersion: v1
+kind: PersistentVolumeClaim
+#ボリューム名（ボリューム参照に使用される）
+metadata:
+    name: VolumeName
+spac:
+    #マウントのモード
+    accessModes:
+    - ReadWriteOnce
+    #使用するストレージクラス(省略でdefaultが使用される)
+    storageClassName: standard
+    resources:
+        #永続ボリュームの容量
+        requests:
+            #永続ボリュームの容量の値
+            storage: 2Gi
+--
+
+マウントのモード::
+[options="header, autowidth"]
+|====
+| accessMode | 説明
+| ReadWriteOnce | 単一ノードの読み書きアクセス
+| ReadOnlyMany | 複数ノードの読み込み専用アクセス
+| ReadWriteMany | 複数ノードの読み書きアクセス
+|====
+
+ポッドからマウント例::
++
+.Pod_with_pvc.yaml
+[source,yaml]
+--
+apiVersion: v1
+kiind: Pod
+metadata:
+    name: ---
+spec:
+    volumes:
+    -   name: VolumeAlies
+        persistentVolumeClaim:
+            claimName: ClaimName
+    containers:
+    -   name: ---
+        image: ---
+        volumeMounts:
+        -   name: VolumeAlies
+            mountPath: /path
+        command: ["---"]
+--
+
+==== ストレージクラスを利用しない
+
+.PersistentVolume_nfs.yaml
+[source,yaml]
+--
+#固定値
+apiVersion: v1
+#PersistentVolumeを指定
+kind: PersistentVolume
+metadata:
+    #ボリュームの名前
+    name: VolumeName
+    #PersistentVolumeClaimとの紐づけに使われるボリュームラベル
+    labels:
+        name: VolumeLabel
+spec:
+    #ボリューム容量
+    capacity:
+        stprage: 100Mi
+    #アクセスモード
+    accessModes:
+    -   ReadWriteMany
+    #ストレージシステムがNFSの場合に記述する（他に...glusterfs/hostPath/local）
+    nfs:
+        #NFSに割り当てられているIPアドレス（またはDNS名）
+        server: xxx.xxx.xxx.xxx
+        #NFSが公開しているパス
+        path: /path
+--
+
+.PersistentVolumeClaim_nfs.yaml
+[source,yaml]
+--
+#固定値
+apiVersion: v1
+#PersistentVolumeClaimを指定
+kind: PersistentVolumeClaim
+#PVC名
+metadata:
+    name: PersistentVolumeClaimName
+spec:
+    #アクセスモード
+    accessModes:
+    - ReadWriteMany
+    #ストレージクラスを使用しない場合は、空を表す""を指定する
+    storageClassName: ""
+    #ストレージ容量
+    resources:
+        requests:
+            storage: "100Mi"
+    #使用するPresistentVolumeのラベルを指定する
+    selector:
+        matchLabels:
+            name: VolumeLabel
+--
+
+
+=== StatefullSet
+
+PodとStorageを1セットで管理する
+
+
+
+
+=== Ingress
+
+* HTTP/HTTPSのロードバランスを提供
+* L7で動作（SSL termination可）
+* 公開用URLとアプリケーションの紐づけ
+* 仮想ホスト（複数ドメイン対応）
+* 負荷分散
+* SSL/TLS暗号化HTTPS
+* セッションアフィニティ
+
+.イメージ図
+[plantuml, ingress_image, svg]
+--
+node browser
+interface VIP
+node Ingress
+component "certificate" as cer
+node "Service1" as sv1
+node "Service2" as sv2
+node "Service3" as sv3
+node "Pod1" as pod1
+node "Pod2" as pod2
+node "Pod3" as pod3
+
+browser -> VIP : http://~~~.com/
+VIP -> Ingress
+Ingress .. cer
+Ingress -> sv1 : http://~~~.com/
+Ingress -> sv2 : http://~~~.com/path
+Ingress -> sv3 : http://xxx.com/
+sv1 -> pod1
+sv2 -> pod2
+sv3 -> pod3
+sv1 -[hidden]- sv2
+sv2 -[hidden]- sv3
+pod1 -[hidden]- pod2
+pod2 -[hidden]- pod3
+--
+
+Ingress有効化設定::
+有効化 +
+`` minikube addons eneble ingress `` +
+確認 +
+`` minikube addons list ``
+
+.Ingress.yaml
+[source,yaml]
+--
+apiVersion: networking.k8s.io/v1beta1
+kind:
+metadata:
+    #ingress名
+    name: IngressName
+    #Ingressコントローラの設定に使う値を設定
+    annotations:
+        #nginxタイプを使用する場合の宣言
+        kubernetes.io/ingress.class: 'nginx'
+        nginx.ingress.kubernetes.io/rewrite-target: /
+        #HTTPSを強制するための設定（httpアクセスをhttpsアクセスにリダイレクトさせる）
+        nginx.ingress/kubernetes.io/force-ssl-redirect: 'true'
+        #セッションアフィニティを使用する場合に設定する
+        nginx.ingress.kubernetes.io/affinity: 'cookie'
+spec:
+    #暗号設定（証明書単位で複数指定可）
+    tls:
+        #対象ホスト名
+    -   hosts:
+        - xxx.yyy.zzz.com
+        #使用するサーバ証明書が保存されているコンフィグセット
+        secretName: ConfigsetName
+    #DNS名とバックエンドサービスを紐付けるルール
+    rules:
+        #ドメイン名
+    -   host: xxx.yyy.zzz.com
+        http:
+            #ドメイン以降のパスを指定
+            paths:
+            -   path: /
+                #転送先のサービス名の指定
+                backend:
+                    serviceName: ServiceName
+                    servicePort: xxxx
+--
+
+tls証明書をk8sシークレットに登録::
+`` kubectl create secret tls NamespaceLabel --key xxx.key --cert xxx.crt ``
+
+
+IngressとServiceの連携::
+pathはそのまま引き継がれる
++
+.Serviceの関係性
+[plantuml, ingress_service_image, svg]
+--
+actor user
+node "Ingress" as ingress
+note right of ingress
+host: hostname
+http:
+    paths:
+    -   path: /aabbcc
+        backend:
+            serviceName: xxx-svc
+            servicePort: 8080
+end note
+node "Service\n(xxx-svc)" as service
+note right of service
+type: NodePort
+ports:
+-   port: 8080
+    targetPort: 80
+    nodePort: 31445 #<-多分省略OK
+end note
+node "Pod" as pod
+note right of pod
+containers:
+-   ports:
+    -   containerPort: 80
+end note
+
+user --> ingress : http://hostname/aabbcc ー＞ :80
+ingress --> service : :80 ＜ーー＞ :8080
+service --> pod : :8080 ＜ーー＞ :80
+--
+
+
+=== auto scaling
+
+HPA（水平ポッドオートスケーラー）::
+ポッドのCPU使用率(使用時間)を監視し、レプリカ数を制御する
+
+CA（クラスタオートスケーラ）::
+ポッドのCPU使用率(使用時間)を監視し、ノード数を制御する +
+(基本的にクラウドプロバイダが対応していないと使用できない)
+
+.Deployment_autoscale.yaml
+[source,yaml]
+--
+kind:
+...省略...
+spec:
+    template:
+        spec:
+            containers:
+            -   image:
+                name:
+                resources:
+                    requests:
+                        #このPodに割り当てるCPU時間を記載
+                        cpu: ~~~m
+--
+
+HPAの有効化::
+`` kubectl autoscale deployment DeploymentName --cpu-percent=TargetCpuPercentage --min=MinReplicas --max=MaxReplicas ``
+
+HPAの確認::
+`` kubectl get hpa ``
+
+=== Namespace
+
+仮想的に独立したクラスタ環境を構築
+
+名前空間の切り替え::
+`` kubectl config use-context Namespace ``
+
+他の名前空間に対してコマンド生成::
+`` COMMAND -n Namespace ``
+
+.Namespace.yaml
+[source,yaml]
+--
+apiVersion: v1
+kind: Namespace
+metadata:
+    name: NamespaceName
+--
+
+
+=== Secret / ConfigMap
+
+Secret::
+* 環境によって異なるデータを保存し、コンテナの普遍性を保持する
+* 秘匿性の高いデータを保存
+* 保存する値は、何かしらでエンコードされなければならない
+** マニュフェストで使用するデータとして値を保存する場合はBase64でエンコード
+* RBACによるUACに利用される（ユーザ情報などがシークレットに自動で保存される）
+* 名前空間に属し、他の名前空間から参照できない
+* シークレットが参照されるとき、そのシークレットが存在していなければならない
++
+.Secret.yaml
+[source,yaml]
+--
+apiVersion: v1
+kind: Secret
+metadata:
+    name: SecretName
+type:
+data:
+    Key1: Value1(encorded)
+    Key2: Value2(encorded)
+--
+
+ConfigMap::
+* 環境によって異なるデータを保存し、コンテナの普遍性を保持する
+* 全般的なデータを保存
+* 保存する値は平文でOK
+* 名前空間に属し、他の名前空間から参照できない
+* クラスタロールviewで参照できる
++
+.ConfigMap.yaml
+[source,yaml]
+--
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: ConfigMapNam
+data:
+    Key1: Value1
+    Key2: Value2
+--
+
+
+.Podでsecret/configMapの利用
+[source,yaml]
+--
+spec:
+    containers:
+    #(a)環境変数に使用する場合
+    -   env:
+        #Secretの値を参照
+        -   name: EnvName
+            valueFrom:
+                secretKeyRef:
+                    name: SecretName
+                    key: Key
+        #ConfigMapの値を参照
+        -   name: EnvName
+            valueFrom:
+                configMapKeyRef:
+                    name: ConfigMapName
+                    key: Key
+    #(b)ボリュームとしてマウントする場合
+    volumes:
+    -   name: ConfigMapAlies
+        configMap:
+            name: ConfigMapName
+    -   name: SecretAlies
+        secret:
+            secretName: SecretName
+--
+
+
+=== リソースコントロール
+
+リソース::
+CPU時間とメモリ量を指す
+* CPU時間：1秒間/コアあたりに何秒プロセスを処理するか
+* 1コアのCPU時間 = 1000[ms]
+
+==== Resource Quota
+* 名前空間ごとのリソースの総使用量を制限することができる
+* 起動時の値・上限値を設定できる
+
+.ResourceQuota.yaml
+[source,yaml]
+--
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+    name: QuotaName
+    namespace: NamespaceName
+spec:
+    #ハードウエアの制限量を定義
+    hard:
+        #CPU要求の合計
+        requests.cpu: "1"
+        #メモリ要求の合計
+        requests.memory: 1Gi
+        #CPU最大合計値
+        limits.cpu: "1"
+        #メモリ最大合計値
+        limits.memory: 1Gi
+--
+
+==== Limit Range
+* リソースの要求量・最大値のデフォルト値を設定できる
+** 要求量：常時使用するリソース量
+*** 新規にコンテナを立ち上げるとき、新規コンテナのCPU要求量がCPUアイドル量を上回っていた場合、コンテナは立ち上げることができずペンディング状態となる
+** 最大値：コンテナに割り当てるリソースの最大量
+*** 複数コンテナが同時に立ち上がっている場合、それぞれのCPU要求量を確保した状態で、CPUアイドル部分を奪い合う
+*** コンテナにメモリリークなどが生じてメモリ割り当て最大値を超えてメモリを確保しようとすると、LimitRangeが働いてコンテナが停止される（SIGTERM）
+
+.LimitRange.yaml
+[source,yaml]
+--
+apiVersion: v1
+kind: LimitRange
+metadata:
+    name: LimitRangeName
+    namespace: NamespaceName
+spec:
+    limits:
+        #適用対象
+    -   type: Container
+        #制限の既定値
+        default:
+            cpu:
+            memory:
+        #要求の既定値
+        defaultRequest:
+            cpu:
+            memory:
+--
+
+=== Calico
+
+* ネットワークポリシーを名前空間に適用し、アクセス制限を実施できる
+* Calicoはクラスタネットワークに対してアクセス制限をかける（ノードを区別しない論理的なネットワーク）
+** Firewallはノードネットワークに対して（内外の）アクセス制限をかけるため、両者は微妙に異なる
+
+
+
+=== Role
+
+* kubernetesはRBAC(role based access controll)を定義できる
+* 名前の定義(ServiceAccount)・役割の定義(Role)・名前と役割の紐づけ(RoleBinding)によって１つのroleが定義される
+
+.マニュフェストファイルの関係性
+[plantuml, role_manufest_image, svg]
+--
+component namespace
+note left of namespace : 名前空間を定義
+component "Service\nAccount\n(name: SAName)" as sa
+component "Cluster\nRole\n(verb: ...)" as cr
+component "Cluster\nRole\nBinding" as crb
+note top of crb : ServiceAccountに\nClusterRoleを\n付与
+node "Pod\n(ServiceAccount\nName: SAName)" as pod
+
+namespace .. sa
+namespace .. crb
+namespace .. pod
+sa <-> crb : (*)  subject  (1)
+crb <-> cr : ref
+pod <-> sa : spec
+--
+
+.ServiceAccount.yaml
+[source,yaml]
+--
+apiVersion: v1
+kind: ServiceAccount
+matadata:
+    name: AccountName
+    namespace: NamespaceName
+--
+
+.Role.yaml
+[source,yaml]
+--
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+    name: RoleName
+    namespace: NamespaceName
+rules:
+    #使用できるAPIグループを指定
+-   apiGroups: [""]
+    #操作できるリソースを指定
+    resources: []
+    #可能な操作の指定
+    verbs: []
+--
+
+apiGroups:: オフィシャルドキュメントを参照
+
+resourcesとverbsの一覧表示::
+`` kubectl describe clusterrole admin -n kube-system ``
+
+.RoleBinding.yaml
+[source,yaml]
+--
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+    name: BindName
+    namespace: NamespaceName
+#以下subjectsに指定したアカウントに紐付けるroleを指定する
+roleRef:
+    #定義済みの自作・プリセットのroleの名前を指定
+    name: ~~~
+    # ClusterRoleを指定
+    kind: ClusterRole
+    apiGroup: rbac.authorization.k8s.io
+#上記roleRefで指定したroleを紐付けるアカウントを指定する（複数可）
+subjects:
+-   kind: ServiceAccount
+    name: AccountName
+    namespace: NamespaceName
+--
+
+roleRefのプリセット::
+[horizontal]
+admin::: 管理者のアクセス権で、作成・編集・削除などの操作ができる
+edit::: 編集可能なアクセス権
+view::: 参照のみのアクセス権
+
+
+==== 複数クライアントからアクセス
+
+adminがクラスタ構築し、operatorが構築済みクラスタにアクセスする場合
+
+.複数PCからのアクセスのイメージ
+[plantuml, multi_client_image, svg]
+--
+actor "admin" as admin
+package "credential\nfiles" as cf {
+    component "ca.crt" as cc
+    component "token.txt" as tat
+}
+actor "operator" as op
+package "config\n(admin)" as cfg_admin {
+    component "context"
+}
+package "config\n(operator)" as cfg_op {
+    component "empty"
+}
+
+package "K8S" as k8s {
+    component account
+}
+
+cfg_admin . admin
+admin ..> cc : (1)
+admin ..> tat : (1)create certification file
+cf ..> op
+cfg_op . op
+tat <-- account
+cc <-- account
+op -> cfg_op : (2)set cluster
+op -> cfg_op: (3)create context
+op -> cfg_op : (3)create context
+k8s <-- op : (4)Command
+--
+
+(1)create certification file::
+管理者は、別クライアントがクラスタにアクセスする場合、クライアント証明書とクライアントに割り当てたいアカウントのトークンをクライアントに連携する必要がある
+クライアント証明書の抽出(ca.crtに保存):::
+`` kubectl get secret SecretName -n NamespaceName -o jsonpath={.data.ca\\.crt} | base64 --decode > ca.crt `` +
+(SecretNameは `` kubectl get secret `` を参照)(AccountName-token-Hashで命名されている) +
+(クライアント証明書はどのアカウントでも同一なので、どれを使用しても可)
+
+アカウントトークンの抽出:::
+`` kubectl get secret SecretName -n NamespaceName -o jsonpath={.data.token} | base64 --decode > token.txt ``
+
+(2)set cluster::
+管理者によって生成済みのクラスターにアクセスする場合は、サーバ名とクライアント証明書をk8sコンフィグに登録する必要がある +
+`` kubectl config set-cluster ClusterName --server=https://aaa.bbb.ccc.ddd:eeee --certificate-authority=ca.crt `` +
+(この時点では、クラスタへのアクセスはできるが、具体的なアクションは権限が無いのでできない)
+
+(3)create context::
+オペレータのPCのk8sコンフィグには、認証情報やアカウント情報が登録されていないので登録する
+ユーザの認証情報登録:::
+`` kubectl config set-credentials CredentialName --token=\`cat token.txt` `` +
+(tokenにはアカウントへの紐づけ情報が記載されている)
+k8sのアカウント登録:::
+`` kubectl config set-context AccountName --cluster=ClusterName --user=CredentialName --namespace=NamespaceName `` +
+(認証情報を元にこのクライアントのコンフィグにアカウントを作成する)
+
+(4)Command::
+コマンドを発行し、クラスタにアクションを行う
+作成アカウントへスイッチ:::
+`` kubectl config use-context AccountName `` +
+(このコマンド発行以降、AccountNameの権限でクラスタにアクションを行うことができる)
+
+
+=== SSL/TLS設定
+
+. プライベートキーの生成 +
+`` openssl genrsa -des3 -out server.key.encrypted 2048 ``
+. CSR(Certificate Signing Request)の作成(1つのFQDNに対して1つ) +
+`` openssl rsa -in server.key.encrypted -out server.key `` +
+`` openssl req -new key server.key -out www.sampel.com.csr -subj "/C=JP/ST=Tokyo/L=Nihombashi/O=SampleCorp/CN=www.sample.com" ``
+. サーバ証明書の作成(オレオレ) +
+`` openssl x509 -req -days 365 -in www.sample.com.csr -signkey server.key -out www.sample.com.crt ``
+. 証明書(.crt)とプライベートキー(.key)をセットにしてシークレットに登録 +
+`` kubectl create secret tls cert -n prod --cert=www.sample.com.crt --key=server.key ``
+. サーバの設定ファイルでSSLを有効にし、証明書とキーの参照先を証明書用ディレクトリ(/etc/cert)に設定する
+. 作成したサーバの設定ファイルをコンフィグマップに登録する +
+`` kubectl create configmap nginx-conf --from-file=/path/to/nginx.conf ``
+. サーバを起動するPodの設定で、登録した証明書とキーのシークレットを証明書用ディレクトリにマウントする +
+また、設定ファイルのコンフィグマップをサーバの設定ファイル用ディレクトリ(/etc/nginx/conf.d)にマウントする
+
+
+.nginxの設定ファイル例
+[source,ini]
+--
+ssl_protocols TLSv1.2:
+server {
+    listen 443 ssl;
+    server_name www.sample.com; #ここのドメインと証明書のドメインを一致させる必要がある
+    ssl_certificate /etc/cert/tls.crt;
+    ssl_certificate_key /etc/cert/tls.key;
+    location / {
+        root /usr/share/nginx/html;
+        index index.html index.htm;
+    }
+}
+--
+
+.nginxのマニュフェスト例
+[source,yaml]
+--
+~~省略~~
+kind: Deployment
+spec:
+    ~~省略~~
+    template:
+        spec:
+            containers:
+            -   name: ~~~
+                image: nginx
+                ports:
+                -   protocol: TCP
+                    containerPort: 443
+                volumeMounts:
+                -   name: nginx-conf
+                    mountPath: /etc/nginx/conf.d
+                -   name: tls-cert
+                    mountPath: /etc/cert
+            volumes:
+            -   name: nginx-conf
+                configMap:
+                    name: nginx-conf
+            -   name: tls-cert
+                secret:
+                    secretName: cert
+--
+
+
+.SSL/TLSの設定イメージ
+[plantuml, ssl_tls_image, svg]
+--
+actor user
+package "local machine" {
+    component ".key\n(encrypted)" as key
+    component CSR
+    component ".key\n(decrypted)" as dekey
+    component "サーバ証明書.crt\n(オレオレ)" as svcert
+    component "nginx.conf" as conf
+}
+package "secret" as secret {
+    component cert
+}
+package "configMap" as cm {
+    component "nginx-conf" as nc
+}
+component "Pod-Manufest" as pod
+
+user --> key
+user --> CSR
+key --> dekey
+dekey -> CSR
+dekey --> svcert
+CSR --> svcert
+svcert -- cert
+dekey -- cert
+conf -- nc
+cert --> pod : secret
+nc --> pod : configMap
+--
+
+=== Network Policy
+
+* 指定された名前空間の指定されたラベルが付与されたPodに対して(PodSelector)、指定されたラベルのPodのみアクセスを許可する(Ingress)
+
+.networkPolicy.yaml
+[source,yaml]
+--
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+    name: NetworkPolicyName
+    namespace: NamespaceName
+spec:
+    #自身に対するアクセス制限をかけるPodに付与するラベルを定義
+    #（すべてのPodを対象とする場合、machesLabelsに空を指定する）
+    podSelector:
+        matchesLabels:
+            key: value
+    #制限対象PodにアクセスできるPodの定義
+    ingress:
+        #すべての対象PodをアクセスOKにする場合、from: []と指定
+        #すべてのPodをアクセスNGにする場合、podSelector: {}と指定
+    -   from:
+        -   podSelector:
+                matchesLabels:
+                    key: value
+--
+
+.network policyイメージ
+[plantuml, network_policy_image, svg]
+--
+package "namespace" {
+
+    package "ingress.from.podSelector.matchesLabels.label == yyy" {
+        node "Pod_from\n(label: yyy)" as podf1
+        node "Pod_from\n(label: yyy)" as podf2
+    }
+    package "podSelector.matchesLabels.label == xxx" {
+        node "Pod_to\n(label: xxx)" as podt1
+        node "Pod_to\n(label: xxx)" as podt2
+    }
+    node "Pod\n(no label)" as pod3
+    podf1 --> podt1 : access OK
+    podf1 --> podt2 : access OK
+    podf2 --> podt1 : access OK
+    podf2 --> podt2 : access OK
+    pod3 ..> podt1 : 404
+}
+--
+
+[options="header" cols="1a,1a"]
+|====
+| network policy | desc 
+|```
+spec:
+    podSelector:
+        matchesLabels:
+            key: value
+```| ラベル `` key: value ``と一致するPodにポリシー適用
+|```
+spec:
+    podSelector:
+        matchesLabels:
+```| 名前空間内のすべてのPodにポリシー適用
+|```
+spec:
+    podSelector: {}
+```| 名前空間内のすべてのPodにポリシー適用
+|```
+ingress: []
+```| 【policy】すべてのアクセスをドロップ
+|```
+ingress:
+-   from: []
+```| 【policy】外部も含め、すべてのアクセスを受け入れる
+|```
+ingress:
+-   from:
+    -   podSelector: {}
+```| 【policy】名前空間内のPodのアクセスは受け入れる（外部はドロップ）
+|```
+ingress:
+-   from:
+    -   podSelector:
+        machesLables:
+            key: value
+```| 【policy】名前空間内のラベル `` key: value ``と一致するPodのアクセスを受け入れる
+|```
+ingress:
+-   {}
+```| 【policy】すべてのアクセスを受け入れる
+|====

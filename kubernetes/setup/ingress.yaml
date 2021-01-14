@@ -1,0 +1,40 @@
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+    #ingress名
+    name: test-ingress
+    #Ingressコントローラの設定に使う値を設定
+    annotations:
+        #nginxタイプを使用する場合の宣言
+        kubernetes.io/ingress.class: 'nginx'
+        #ingressにアクセスの際に指定されたパスを書き換える（/を指定で/に書き換える）
+        #nginx.ingress.kubernetes.io/rewrite-target: /
+        #HTTPSを強制するための設定（httpアクセスをhttpsアクセスにリダイレクトさせる）
+        #nginx.ingress/kubernetes.io/force-ssl-redirect: 'true'
+        #セッションアフィニティを使用する場合に設定する
+        #nginx.ingress.kubernetes.io/affinity: 'cookie'
+spec:
+    #暗号設定（証明書単位で複数指定可）
+    #tls:
+    #    #対象ホスト名
+    #-   hosts:
+    #    - xxx.yyy.zzz.com
+    #    #使用するサーバ証明書が保存されているコンフィグセット
+    #    secretName: ConfigsetName
+    #DNS名とバックエンドサービスを紐付けるルール
+    rules:
+        #ドメイン名
+    -   host: dev.kota.com
+        http:
+            #ドメイン以降のパスを指定
+            paths:
+            -   path: /api/
+                #転送先のサービス名の指定
+                backend:
+                    serviceName: api-svc
+                    servicePort: 5000
+            -   path: /
+                #転送先のサービス名の指定
+                backend:
+                    serviceName: web-svc
+                    servicePort: 8080

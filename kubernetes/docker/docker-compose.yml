@@ -1,0 +1,42 @@
+version: '3'
+services:
+    web:
+        build: ./web
+        image: web-image:test1.0
+        container_name: web-container
+        ports:
+            - 8080:80
+        networks:
+            - front
+            - back
+        depends_on:
+            - api
+    api:
+        build: ./api
+        image: api-image:test1.0
+        container_name: api-container
+        ports:
+            - "5000:5000"
+        networks:
+            - back
+        depends_on:
+            - db
+    db:
+        build: ./db
+        image: db-image:test1.0
+        container_name: db-container
+        ports:
+            - "15432:15432"
+        environment: 
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=postgres
+            - POSTGRES_HOST=db-container
+            - PGPORT=15432
+            - POSTGRES_DB=test_db
+        networks:
+            - back
+networks:
+    front:
+        #external: true
+    back:
+        #external: true

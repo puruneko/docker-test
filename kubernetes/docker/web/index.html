@@ -1,0 +1,49 @@
+<html>
+    <head>
+        <script type="text/javascript">
+            function insert() {
+                var name = document.myform.textbox.value;
+                alert(`name:${name}`)
+                const obj = {'name':name};
+                const method = "POST";
+                const body = JSON.stringify(obj);
+                const headers = {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                };
+                fetch("/api/update", {method, headers, body})
+                .then((res)=> res.json())
+                .then(console.log)
+                .catch(console.error);
+            }
+            function check() {
+                const headers = {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                };
+                fetch("/api/whoami", {headers})
+                .then((res)=> res.json())
+                .then(console.log)
+                .catch(console.error);
+            }
+            function getname() {
+                const headers = {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                };
+                fetch("/api/name", {headers})
+                .then((res)=> res.json())
+                .then(console.log)
+                .catch(console.error);
+            }
+        </script>
+    </head>
+    <body>
+        <form name="myform">
+            <input type="text" name="textbox">
+            <input type="button" value="update" onclick="insert()">
+        </form>
+        <button onclick="check()">connect to</button>
+        <button onclick="getname()">name</button>
+    </body>
+</html>

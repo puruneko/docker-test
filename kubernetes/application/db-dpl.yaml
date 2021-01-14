@@ -1,0 +1,31 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: db-dpl
+spec:
+    replicas: 3
+    selector:
+        matchLabels:
+            app: db
+    template:
+        metadata:
+            labels:
+                app: db
+        spec:
+            containers:
+            -   image: db-image:test1.0
+                name: db-container
+                ports:
+                -   containerPort: 15432
+                env:
+                -   name: POSTGRES_USER
+                    value: postgres
+                -   name: POSTGRES_PASSWORD
+                    value: postgres
+                -   name: POSTGRES_HOST
+                    value: db-container
+                -   name: PGPORT
+                    value: "15432"
+                -   name: POSTGRES_DB
+                    value: test_db
+                    

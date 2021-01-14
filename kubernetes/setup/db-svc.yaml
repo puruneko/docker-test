@@ -1,0 +1,11 @@
+kind: Service
+apiVersion: v1
+metadata:
+    name: db-svc
+spec:
+    type: NodePort
+    ports: #portで受けた通信をtargetPortへ転送
+    -   port: 15432 #NodePortが公開するPort
+        targetPort: 15432 #NodePortが転送する先のPort
+    selector:
+        app: db
