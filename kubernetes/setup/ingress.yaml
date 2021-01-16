@@ -8,7 +8,7 @@ metadata:
         #nginxタイプを使用する場合の宣言
         kubernetes.io/ingress.class: 'nginx'
         #ingressにアクセスの際に指定されたパスを書き換える（/を指定で/に書き換える）
-        #nginx.ingress.kubernetes.io/rewrite-target: /
+        nginx.ingress.kubernetes.io/rewrite-target: /
         #HTTPSを強制するための設定（httpアクセスをhttpsアクセスにリダイレクトさせる）
         #nginx.ingress/kubernetes.io/force-ssl-redirect: 'true'
         #セッションアフィニティを使用する場合に設定する
