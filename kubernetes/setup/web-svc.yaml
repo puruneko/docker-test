@@ -3,9 +3,10 @@ apiVersion: v1
 metadata:
     name: web-svc
 spec:
-    type: NodePort
+    type: LoadBalancer
     ports: #portで受けた通信をtargetPortへ転送
     -   port: 8080 #NodePortが公開するPort
+        protocol: TCP
         targetPort: 80 #NodePortが転送する先のPort
     selector:
         app: web

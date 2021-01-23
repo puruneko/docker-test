@@ -57,11 +57,11 @@ db_session.commit()
 
 iam = random.randint(0,1000)
 
-@app.route('/api/whoami', methods=['GET'])
+@app.route('/whoami', methods=['GET'])
 def whoami():
     return jsonify({'data':f'{iam}'})
 
-@app.route('/api/update', methods=['POST'])
+@app.route('/update', methods=['POST'])
 def insert():
     name = request.json['name']
     p = db_session.query(PersonModel).filter_by(id=1).first()
@@ -69,7 +69,7 @@ def insert():
     db_session.commit()
     return jsonify({'data':f'update {name}.'})
 
-@app.route('/api/name', methods=['GET'])
+@app.route('/name', methods=['GET'])
 def name():
     p = db_session.query(PersonModel).filter_by(id=1).first()
     return jsonify({'data':f'{p.name}'})
