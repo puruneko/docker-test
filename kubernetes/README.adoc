@@ -4,36 +4,24 @@
 
 == Ubuntu on WSLへのkubernetesセットアップ
 
-kubectl::
-curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
-chmod +x ./kubectl
-sudo mv ./kubectl /usr/local/bin/kubectl
+. docker on desktopのkubernetes統合機能をONにする
+. ubuntu20.04を起動
+. dockerコマンド、kubectlコマンドが通るか確認
+. homeディレクトリに移動（Cドライブ：/mnt/c）
+. dockerフォルダに移動
+. imageの作成 +
+`` sudo docker-compose build ``
+. kubernetesフォルダに移動
+. setupマニュフェストの適用 +
+`` kubectl apply -f ./setup ``
+. appマニュフェストの適用 +
+`` kubectl apply -f ./application ``
+. kubernetesのIPを確認 +
+`` kubectl cluster-info ``
+. hostsの設定（先ほど確認したやつ）
+. IPにブラウザからアクセス（port:8080）
 
-minikube::
-curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 \
-  && chmod +x minikube
-sudo mkdir -p /usr/local/bin/
-sudo install minikube /usr/local/bin/
 
-minikube start::
-minikube start --driver=docker
-
-expose::
-kubectl expose deploy/web-dpl --port=80
-kubectl port-forward svc/web-dpl 8080:80 &
-
-== ハンズオン用の全コマンド
-
-. cd kubernetes
-. minikube start
-. minikube cluster-infoでip確認
-. hostsでdev.kota.comを確認IPにバインドする
-. eval $(minikube -p minikube docker-env)
-. cd docker
-. docker-compose build
-. cd ..
-. kubectl apply -f ./setup
-. kubectl apply -f ./application
 
 == 前準備／事前知識
 
